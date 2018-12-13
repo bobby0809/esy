@@ -14,8 +14,7 @@ exports[`Build with a linked dep out of source build macos || linux: build-env d
 #
 # dep@link:dep
 #
-export OCAMLFIND_LDCONF=\\"ignore\\"
-export OCAMLFIND_DESTDIR=\\"%projectPath%/_esy/default/store/i/%id%/lib\\"
+export OCAMLFIND_CONF=\\"%projectPath%/_esy/default/store/b/%id%/_esy/findlib.conf\\"
 export cur__etc=\\"%projectPath%/_esy/default/store/i/%id%/etc\\"
 export cur__share=\\"%projectPath%/_esy/default/store/i/%id%/share\\"
 export cur__toplevel=\\"%projectPath%/_esy/default/store/i/%id%/toplevel\\"
@@ -56,15 +55,13 @@ exports[`Build with a linked dep out of source build macos || linux: build-env s
 # dep@link:dep
 #
 export CAML_LD_LIBRARY_PATH=\\"%projectPath%/_esy/default/store/i/%depid%/stublibs:%projectPath%/_esy/default/store/i/%depid%/lib/stublibs:$CAML_LD_LIBRARY_PATH\\"
-export OCAMLPATH=\\"%projectPath%/_esy/default/store/i/%depid%/lib:$OCAMLPATH\\"
 export MAN_PATH=\\"%projectPath%/_esy/default/store/i/%depid%/man:$MAN_PATH\\"
 export PATH=\\"%projectPath%/_esy/default/store/i/%depid%/bin:$PATH\\"
 
 #
 # with-linked-dep-_build@link:./package.json
 #
-export OCAMLFIND_LDCONF=\\"ignore\\"
-export OCAMLFIND_DESTDIR=\\"%projectPath%/_esy/default/store/i/%id%/lib\\"
+export OCAMLFIND_CONF=\\"%projectPath%/_esy/default/store/b/%id%/_esy/findlib.conf\\"
 export cur__etc=\\"%projectPath%/_esy/default/store/i/%id%/etc\\"
 export cur__share=\\"%projectPath%/_esy/default/store/i/%id%/share\\"
 export cur__toplevel=\\"%projectPath%/_esy/default/store/i/%id%/toplevel\\"

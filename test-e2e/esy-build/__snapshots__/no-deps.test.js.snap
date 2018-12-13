@@ -14,8 +14,7 @@ exports[`'esy build': simple executable with no deps out of source build macos |
 #
 # no-deps@link:./package.json
 #
-export OCAMLFIND_LDCONF=\\"ignore\\"
-export OCAMLFIND_DESTDIR=\\"%projectPath%/_esy/default/store/i/%id%/lib\\"
+export OCAMLFIND_CONF=\\"%projectPath%/_esy/default/store/b/%id%/_esy/findlib.conf\\"
 export cur__etc=\\"%projectPath%/_esy/default/store/i/%id%/etc\\"
 export cur__share=\\"%projectPath%/_esy/default/store/i/%id%/share\\"
 export cur__toplevel=\\"%projectPath%/_esy/default/store/i/%id%/toplevel\\"
