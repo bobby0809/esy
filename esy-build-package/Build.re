@@ -16,6 +16,7 @@ type t = {
   buildPath: Path.t,
   lockPath: Path.t,
   env: Bos.OS.Env.t,
+  files: list(File.t),
   build: list(Cmd.t),
   install: option(list(Cmd.t)),
   sandbox: Sandbox.sandbox,
@@ -137,12 +138,23 @@ let configureBuild = (~cfg: Config.t, plan: Plan.t) => {
     Astring.String.Map.fold(f, plan.env, Ok(Astring.String.Map.empty));
   };
 
+  let%bind files = {
+    let f = (file: File.t) => {
+      open Config.Value;
+      let name = render(cfg, v(file.name));
+      let content = render(cfg, v(file.content));
+
+      Ok(File.{name, content});
+    };
+    Result.List.map(~f, plan.files);
+  };
+
   let renderCommands = (~cfg, cmds) => {
     let f = cmd => {
       let cmd = List.map(Config.Value.render(cfg), cmd);
       return(Cmd.of_list(cmd));
     };
-    EsyLib.Result.List.map(~f, cmds);
+    Result.List.map(~f, cmds);
   };
   let%bind build = renderCommands(~cfg, plan.build);
   let%bind install =
@@ -215,6 +227,7 @@ let configureBuild = (~cfg: Config.t, plan: Plan.t) => {
   return({
     plan,
     env,
+    files,
     build,
     install,
     sourcePath,
@@ -329,6 +342,15 @@ let commitBuildToStore = (config: Config.t, build: build) => {
   ok;
 };
 
+let emitFile = (file: File.t) => {
+  let path = v(file.name);
+
+  let%bind () = mkdir(Path.parent(path));
+  let%bind () = write(~data=file.content, path);
+
+  ok;
+};
+
 let withBuild = (~commit=false, ~cfg: Config.t, plan: Plan.t, f) => {
   let%bind build = configureBuild(~cfg, plan);
 
@@ -365,6 +387,8 @@ let withBuild = (~commit=false, ~cfg: Config.t, plan: Plan.t, f) => {
       } else {
         relocateSourcePath(build.sourcePath, build.rootPath);
       };
+
+    let%bind () = Result.List.iter(~f=emitFile, build.files);
 
     let%bind () =
       switch (withCwd(build.rootPath, ~f=() => f(build))) {

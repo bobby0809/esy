@@ -76,7 +76,7 @@ end = struct
             let exportedEnvLocal = (name, value)::exportedEnvLocal in
             injectCamlLdLibraryPath, exportedEnvGlobal, exportedEnvLocal
         in
-        StringMap.fold f build.exportedEnv (true, [], []) 
+        StringMap.fold f build.exportedEnv (true, [], [])
       in
 
       let exportedEnvGlobal =
@@ -92,8 +92,7 @@ end = struct
       let exportedEnvGlobal =
         let path = "PATH", "#{self.bin : $PATH}" in
         let manPath = "MAN_PATH", "#{self.man : $MAN_PATH}" in
-        let ocamlpath = "OCAMLPATH", "#{self.lib : $OCAMLPATH}" in
-        path::manPath::ocamlpath::exportedEnvGlobal
+        path::manPath::exportedEnvGlobal
       in
 
       exportedEnvGlobal, exportedEnvLocal
@@ -248,8 +247,7 @@ end = struct
         "cur__toplevel", (p SandboxPath.(installPath / "toplevel"));
         "cur__share", (p SandboxPath.(installPath / "share"));
         "cur__etc", (p SandboxPath.(installPath / "etc"));
-        "OCAMLFIND_DESTDIR", (p SandboxPath.(installPath / "lib"));
-        "OCAMLFIND_LDCONF", "ignore";
+        "OCAMLFIND_CONF", (p SandboxPath.(buildPath scope / "_esy" / "findlib.conf"));
       ]
     in
 
@@ -265,6 +263,57 @@ end = struct
     in
 
     env
+
+end
+
+module Findlib = struct
+  type t =
+    | Host of config
+  and config = {
+    path: string;
+    destdir: string;
+    stdlib: string;
+    ldconf: string;
+    commands: (string * string) list;
+  }
+
+  let isCompiler (pkg: Package.t) =
+    let compilers = ["ocaml"] in
+    List.mem pkg.name ~set:compilers
+
+  let commands (sysroot: SandboxPath.t) =
+    let commands = [
+      "ocamlc"; "ocamlopt"; "ocamlcp"; "ocamlmklib"; "ocamlmktop";
+      "ocamldoc"; "ocamldep"; "ocamllex";
+    ] in
+    let f cmd = (cmd, SandboxPath.(show (sysroot / "bin" / cmd))) in
+    List.map ~f commands
+
+  let name ~prefix = function
+    | Host _ ->
+      SandboxPath.(show (prefix / "_esy" / "findlib.conf"))
+
+  let content t =
+    let toConfigVar findlib name value =
+      let field = match findlib with
+       | Host _ -> name
+      in
+      Printf.sprintf "%s = \"%s\"" field value
+    in
+
+    match t with
+    | Host findlib ->
+      String.concat "\n" (
+        [
+          toConfigVar t "path" findlib.path;
+          toConfigVar t "destdir" findlib.destdir;
+          toConfigVar t "stdlib" findlib.stdlib;
+          toConfigVar t "ldconf" findlib.ldconf;
+        ]
+        @ List.map
+          ~f:(fun (name, cmd) -> toConfigVar t name cmd)
+          findlib.commands
+      )
 
 end
 
@@ -371,6 +420,12 @@ let logPath scope = PackageScope.logPath scope.self
 
 let pp fmt scope =
   Fmt.pf fmt "Scope %a" BuildId.pp (PackageScope.id scope.self)
+
+let find scope pkgname =
+  let open Option.Syntax in
+  let f dep = PackageScope.name dep.self = pkgname in
+  let%bind found = List.find_opt ~f scope.dependencies in
+  return found
 
 let exposeUserEnvWith makeBinding name scope =
   let finalEnv =
@@ -483,6 +538,36 @@ let env ~includeBuildEnv ~buildIsInProgress scope =
     @ scope.sandboxEnv
   ))
 
+let findlib ~(sysroot: SandboxPath.t) (scope: t) =
+  let open SandboxPath in
+  let path =
+    let f depscope = show (installPath depscope / "lib") in
+    let libPaths = List.map ~f scope.dependencies in
+    let sep = System.Environment.sep ~name:"OCAMLPATH" () in
+    String.concat sep libPaths
+  in
+  let destdir = show (stagePath scope / "lib") in
+  let stdlib = show (sysroot / "lib" / "ocaml") in
+  let commands = Findlib.commands sysroot in
+  {
+    Findlib.path;
+    destdir;
+    stdlib;
+    ldconf = "ignore";
+    commands;
+  }
+
+let toFindlibConfig scope =
+  (* We only support host ocaml compiler for now *)
+  if Findlib.isCompiler scope.pkg then []
+  else begin match find scope "ocaml" with
+  | Some ocaml ->
+    let sysroot = installPath ocaml in
+    let host = findlib ~sysroot scope in
+    [Findlib.Host host]
+  | None -> []
+  end
+
 let toOCamlVersion version =
   let version = Version.showSimple version in
   match String.split_on_char '.' version with
@@ -496,12 +581,7 @@ let toOCamlVersion version =
 
 let ocamlVersion scope =
   let open Option.Syntax in
-  let f dep =
-    match PackageScope.name dep.self with
-    | "ocaml" -> true
-    | _ -> false
-  in
-  let%bind ocaml = List.find_opt ~f scope.dependencies in
+  let%bind ocaml = find scope "ocaml" in
   return (toOCamlVersion (PackageScope.version ocaml.self))
 
 let toOpamEnv ~buildIsInProgress (scope : t) (name : OpamVariable.Full.t) =

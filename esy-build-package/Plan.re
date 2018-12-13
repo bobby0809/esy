@@ -17,6 +17,7 @@ type t = {
   stagePath: Config.Value.t,
   installPath: Config.Value.t,
   env: Env.t,
+  files: list(File.t),
   jbuilderHackEnabled: bool,
 };
 

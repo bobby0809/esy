@@ -127,6 +127,14 @@ module Task = struct
       | Unsafe, _ -> false
     in
     let env = Option.orDefault ~default:t.env env in
+    let files =
+      let f config = EsyBuildPackage.File.{
+        name = Scope.Findlib.name ~prefix:buildPath config;
+        content = Scope.Findlib.content config;
+      } in
+      let configs = Scope.toFindlibConfig t.scope in
+      List.map ~f configs
+    in
     {
       EsyBuildPackage.Plan.
       id = BuildId.show (Scope.id t.scope);
@@ -143,6 +151,7 @@ module Task = struct
       installPath = Scope.SandboxPath.toValue installPath;
       jbuilderHackEnabled;
       env;
+      files;
     }
 
   let to_yojson t = EsyBuildPackage.Plan.to_yojson (plan t)
